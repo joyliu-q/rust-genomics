@@ -27,7 +27,7 @@ impl Sequence {
         Sequence{seq}
     }
     // TODO: check sequence validity (e.g. is ATCG)
-    pub fn check(&self) -> bool {
+    fn check(&self) -> bool {
         true
     }
     pub fn find_at_index(&self, index: usize) -> Result<&str, Error> {
@@ -55,23 +55,47 @@ impl Sequence {
     ///     ["AT", "CAG", "GCA", "T"]
     /// ]
     /// ```
-    pub fn pack_into_codons(&self) -> Vec<Vec<&str>>{
-        let mut codon_list = vec![Vec::new(), Vec::new(), Vec::new()];
+    pub fn pack_into_codons(&self) -> Vec<Vec<&str>> {
+        let mut reading_frame = vec![Vec::new(), Vec::new(), Vec::new()];
         for i in 0..3 {
             let mut seq = &self.seq[..];
-            if i > 0 {codon_list[i].push(&seq[0..i]);}
+            if i > 0 {reading_frame[i].push(&seq[0..i]);}
             seq.to_string().replace_range(0..i, "");
             while !seq.is_empty() {
                 let (codon, remaining_seq) = seq.split_at(cmp::min(3, seq.len()));
-                codon_list[i].push(codon);
+                reading_frame[i].push(codon);
                 seq = remaining_seq;
             }
         }
-        println!("{:?}", &codon_list);
-        return codon_list;
+        println!("{:?}", &reading_frame);
+        reading_frame
+    }
+    fn return_start_stop_positions(codon_list: Vec<&str>) -> (Vec<usize>, Vec<usize>){
+        let mut start_positons = Vec::new();
+        let mut stop_positions = Vec::new();
+
+        for (index, codon) in codon_list.into_iter().enumerate() {
+            match codon {
+                "ATG" => start_positons.push(index),
+                "TAA" | "TAG" | "TGA" => stop_positions.push(index),
+                _ => continue
+            }
+        }
+        (start_positons, stop_positions)
     }
     // TODO: Find longest Open Reading Frame in sequence
     pub fn find_lorf(&self) -> LORF {
+        let reading_frames = self.pack_into_codons();
+        for frame in reading_frames {
+            let (start_positons, stop_positions) = Sequence::return_start_stop_positions(frame);
+            //TODO: find ORF based on start and stop lol
+            /*
+                ORF:
+                1. start_index < stop_index
+                2. no stops between current start and stop
+                LORF: max length in ORFs
+            */
+        }
         LORF::One((1,2))
     }
     pub fn gen_random_seq(len: i32) -> Sequence {    
@@ -182,6 +206,7 @@ mod tests {
         assert![sequence.find_at_index(2000).is_err()];
     }
 
+    #[test]
     fn test_codon_packing() {
         let seq = Sequence::gen_random_seq(1000);
         seq.pack_into_codons();
