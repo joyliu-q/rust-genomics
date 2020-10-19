@@ -1,8 +1,8 @@
-use rust_genomics::{read_fasta};
+use rust_genomics::{read_fasta, Sequence};
 use std::fs;
 
-use std::time::{Instant};
-
 fn main() {
-    read_fasta("data/sars_cov2_snip.fasta");
+    let seq = Sequence::gen_random_seq(1000);
+    seq.pack_into_codons();
+    //read_fasta("data/sars_cov2_snip.fasta");
 }

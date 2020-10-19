@@ -7,40 +7,16 @@ use std::fs;
 use std::fmt;
 
 use std::time::{Instant};
+use std::cmp;
 
 pub const SEQUENCE_LEN: i32 = 20;
 pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 
-pub struct FASTA {
-    pub name: String,
-    pub content: Vec<FastaRecord>,
-}
-impl FASTA {
-    pub fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
-        FASTA{name, content}
-    }
-}
-impl fmt::Display for FASTA {
-    //TODO
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Name: {}", self.name)
-    }
-}
-
-pub struct FastaRecord {
-    pub header: String,
-    pub sequence: String,
-}
-impl FastaRecord {
-    pub fn new(header: String, sequence: String) -> FastaRecord {
-        FastaRecord{header, sequence}
-    }
-}
-impl fmt::Display for FastaRecord {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Header: {}\nSequence: {}", self.header, self.sequence)
-    }    
-}
+// Longest open reading frame (start, stop). Can have one or multiple
+pub enum LORF {
+    One((usize, usize)),
+    Multiple(Vec<(usize, usize)>),
+} 
 
 //TODO: RIGHT NOW NOT USING SEQUENCE TYPE
 pub struct Sequence {
@@ -64,15 +40,39 @@ impl Sequence {
             }
         }
     }
-    /// TODO: There are 3 reading frames for codons: let's call them shift 0, 1, and 2.
-    /// For example, for sequence ATCAGGCAT
-    ///     Reading Frame 0: [ATC][AGG][CAT]...
-    ///     Reading Frame 1: A[TCA][GGC]AT...
-    ///     Reading Frame 2: AT[CAG][GCA]T...
-    /// This function takes the current sequence and returns a vector of codons at these 3 frames
-    pub fn pack_into_codons(&self) -> Vec<Vec<char>>{
-        let codon_list = vec![Vec::new(), Vec::new(), Vec::new()];
+    /// This function takes the current sequence and returns a vector of codons at these 3 frames.
+    /// # Example
+    /// For sequence ATCAGGCAT, there are 3 frames
+    /// * Reading Frame 0: [ATC][AGG][CAT]...
+    /// * Reading Frame 1: A[TCA][GGC]AT...
+    /// * Reading Frame 2: AT[CAG][GCA]T...
+    /// 
+    /// By calling this function on that sequence, it returns 
+    /// ```
+    /// [
+    ///     ["ATC", "AGG", "CAT"],
+    ///     ["A", "TCA", "GGC", "AT"],
+    ///     ["AT", "CAG", "GCA", "T"]
+    /// ]
+    /// ```
+    pub fn pack_into_codons(&self) -> Vec<Vec<&str>>{
+        let mut codon_list = vec![Vec::new(), Vec::new(), Vec::new()];
+        for i in 0..3 {
+            let mut seq = &self.seq[..];
+            if i > 0 {codon_list[i].push(&seq[0..i]);}
+            seq.to_string().replace_range(0..i, "");
+            while !seq.is_empty() {
+                let (codon, remaining_seq) = seq.split_at(cmp::min(3, seq.len()));
+                codon_list[i].push(codon);
+                seq = remaining_seq;
+            }
+        }
+        println!("{:?}", &codon_list);
         return codon_list;
+    }
+    // TODO: Find longest Open Reading Frame in sequence
+    pub fn find_lorf(&self) -> LORF {
+        LORF::One((1,2))
     }
     pub fn gen_random_seq(len: i32) -> Sequence {    
         let mut rng = rand::thread_rng();
@@ -134,6 +134,37 @@ pub fn read_fasta(path: &str) {
     //println!("{}", now.elapsed().subsec_nanos());
 }
 
+pub struct FastaRecord {
+    pub header: String,
+    pub sequence: String,
+}
+impl FastaRecord {
+    pub fn new(header: String, sequence: String) -> FastaRecord {
+        FastaRecord{header, sequence}
+    }
+}
+impl fmt::Display for FastaRecord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Header: {}\nSequence: {}", self.header, self.sequence)
+    }    
+}
+
+pub struct FASTA {
+    pub name: String,
+    pub content: Vec<FastaRecord>,
+}
+impl FASTA {
+    pub fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
+        FASTA{name, content}
+    }
+}
+impl fmt::Display for FASTA {
+    //TODO
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Name: {}", self.name)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,5 +180,10 @@ mod tests {
         let sequence = Sequence::gen_random_seq(1000);
         assert![sequence.find_at_index(10).is_ok()];
         assert![sequence.find_at_index(2000).is_err()];
+    }
+
+    fn test_codon_packing() {
+        let seq = Sequence::gen_random_seq(1000);
+        seq.pack_into_codons();
     }
 }
