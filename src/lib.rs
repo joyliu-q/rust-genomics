@@ -8,12 +8,42 @@ use std::cmp;
 use std::io::{Write, BufReader, BufRead};
 use std::time::{Instant};
 
-
-pub const SEQUENCE_LEN: i32 = 20;
 pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 
 type StartIndex = usize;
 type StopIndex = usize; 
+
+pub enum Nucleotide {
+    A,
+    T,
+    C,
+    G,
+}
+impl Nucleotide {
+    fn return_char(index: usize) -> char {
+        match index {
+            0 => 'A',
+            1 => 'T',
+            2 => 'C',
+            3 => 'G',
+        }
+    }
+}
+
+/*enum OptionUwU<T> 
+    where T: Display {
+    Yes(T),
+    No,
+}
+impl fmt::Display for OptionUwU<T> 
+    where T: Display {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Yes(value) => value,
+            No => "Smh",
+        })
+    } 
+}*/
 
 /// Longest open reading frame (start, stop). Can have one or multiple
 pub enum LORF {
@@ -32,7 +62,7 @@ impl fmt::Display for Sequence {
 }
 impl Sequence {
     pub fn new(seq: String) -> Sequence {
-        Sequence{seq}
+        Sequence{ seq }
     }
     // TODO: check sequence validity (e.g. is ATCG)
     fn check(&self) -> bool {
@@ -62,7 +92,7 @@ impl Sequence {
         let mut reading_frame = vec![Vec::new(), Vec::new(), Vec::new()];
         for i in 0..3 {
             let mut seq = &self.seq[..];
-            if i > 0 {reading_frame[i].push(&seq[0..i]);}
+            if i > 0 { reading_frame[i].push(&seq[0..i]); }
             seq.to_string().replace_range(0..i, "");
             while !seq.is_empty() {
                 let (codon, remaining_seq) = seq.split_at(cmp::min(3, seq.len()));
@@ -101,7 +131,7 @@ impl Sequence {
         }
         LORF::One((1,2))
     }
-    pub fn gen_random_seq(len: i32) -> Sequence {    
+    pub fn gen_random_seq(len: i64) -> Sequence {    
         let mut rng = rand::thread_rng();
         let mut seq: String = String::new();
         for _ in 0..len {
@@ -174,7 +204,6 @@ impl fmt::Display for FastaRecord {
         write!(f, "Header: {}\nSequence: {}", self.header, self.sequence)
     }    
 }
-
 pub struct FASTA {
     pub name: String,
     pub content: Vec<FastaRecord>,
@@ -211,6 +240,7 @@ mod tests {
     #[test]
     fn test_codon_packing() {
         let seq = Sequence::gen_random_seq(1000);
+        println!("{:?}", seq);
         seq.return_reading_frames();
     }
 }
