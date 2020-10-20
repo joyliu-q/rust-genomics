@@ -19,8 +19,14 @@ pub enum LORF {
 } 
 
 //TODO: RIGHT NOW NOT USING SEQUENCE TYPE
+#[derive(Clone)]
 pub struct Sequence {
     pub seq: String,
+}
+impl fmt::Display for Sequence {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.seq)
+    }
 }
 impl Sequence {
     pub fn new(seq: String) -> Sequence {
@@ -101,7 +107,6 @@ impl Sequence {
     pub fn gen_random_seq(len: i32) -> Sequence {    
         let mut rng = rand::thread_rng();
         let mut seq: String = String::new();
-    
         for _ in 0..len {
             let i = rng.gen_range(0, 4);
             seq.push(NUCLEOTIDE[i]);
@@ -127,10 +132,11 @@ pub fn read_fasta(path: &str) {
         sequence = sequence.replace("\n", "");
         sequence = sequence.replace("\r", "");
 
+        let sequence = Sequence::new(sequence);
         records.push(FastaRecord::new(header.to_string(), sequence));
     }
 
-    // More controlled way
+    // More controlled way except maybe it's actually jankier
     /*let file = fs::File::open(path).expect("path to file not found");
     let reader = BufReader::new(file);
 
@@ -160,10 +166,10 @@ pub fn read_fasta(path: &str) {
 
 pub struct FastaRecord {
     pub header: String,
-    pub sequence: String,
+    pub sequence: Sequence,
 }
 impl FastaRecord {
-    pub fn new(header: String, sequence: String) -> FastaRecord {
+    pub fn new(header: String, sequence: Sequence) -> FastaRecord {
         FastaRecord{header, sequence}
     }
 }
