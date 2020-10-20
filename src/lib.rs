@@ -13,6 +13,7 @@ pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 type StartIndex = usize;
 type StopIndex = usize; 
 
+// Maybe good for future stuff 
 pub enum Nucleotide {
     A,
     T,
