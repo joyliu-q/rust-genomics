@@ -2,24 +2,26 @@ use rand::Rng;
 use std::io::{Error, ErrorKind};
 
 // Reading fasta/gff3 files
-use std::io::{Write, BufReader, BufRead};
 use std::fs;
 use std::fmt;
-
-use std::time::{Instant};
 use std::cmp;
+use std::io::{Write, BufReader, BufRead};
+use std::time::{Instant};
+
 
 pub const SEQUENCE_LEN: i32 = 20;
 pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 
-// Longest open reading frame (start, stop). Can have one or multiple
+type StartIndex = usize;
+type StopIndex = usize; 
+
+/// Longest open reading frame (start, stop). Can have one or multiple
 pub enum LORF {
-    One((usize, usize)),
-    Multiple(Vec<(usize, usize)>),
+    One((StartIndex, StopIndex)),
+    Multiple(Vec<(StartIndex, StopIndex)>),
 } 
 
 //TODO: RIGHT NOW NOT USING SEQUENCE TYPE
-#[derive(Clone)]
 pub struct Sequence {
     pub seq: String,
 }
@@ -46,14 +48,9 @@ impl Sequence {
             }
         }
     }
-    /// This function takes the current sequence and returns a vector of codons at these 3 frames.
+    /// Takes the current sequence and returns a vector of codons at 3 reading frames.
     /// # Example
-    /// For sequence ATCAGGCAT, there are 3 frames
-    /// * Reading Frame 0: [ATC][AGG][CAT]...
-    /// * Reading Frame 1: A[TCA][GGC]AT...
-    /// * Reading Frame 2: AT[CAG][GCA]T...
-    /// 
-    /// By calling this function on that sequence, it returns 
+    /// For sequence ATCAGGCAT, there are 3 frames. By calling this function on that sequence, it returns 
     /// ```
     /// [
     ///     ["ATC", "AGG", "CAT"],
@@ -61,7 +58,7 @@ impl Sequence {
     ///     ["AT", "CAG", "GCA", "T"]
     /// ]
     /// ```
-    pub fn pack_into_codons(&self) -> Vec<Vec<&str>> {
+    pub fn return_reading_frames(&self) -> Vec<Vec<&str>> {
         let mut reading_frame = vec![Vec::new(), Vec::new(), Vec::new()];
         for i in 0..3 {
             let mut seq = &self.seq[..];
@@ -91,7 +88,7 @@ impl Sequence {
     }
     // TODO: Find longest Open Reading Frame in sequence
     pub fn find_lorf(&self) -> LORF {
-        let reading_frames = self.pack_into_codons();
+        let reading_frames = self.return_reading_frames();
         for frame in reading_frames {
             let (start_positons, stop_positions) = Sequence::return_start_stop_positions(frame);
             //TODO: find ORF based on start and stop lol
@@ -136,7 +133,7 @@ pub fn read_fasta(path: &str) {
         records.push(FastaRecord::new(header.to_string(), sequence));
     }
 
-    // More controlled way except maybe it's actually jankier
+    // The other way
     /*let file = fs::File::open(path).expect("path to file not found");
     let reader = BufReader::new(file);
 
@@ -160,7 +157,6 @@ pub fn read_fasta(path: &str) {
     }
     // push final record
     data.push(FastaRecord::new(temp_header, temp_seq.to_owned()));*/
-
     //println!("{}", now.elapsed().subsec_nanos());
 }
 
@@ -215,6 +211,6 @@ mod tests {
     #[test]
     fn test_codon_packing() {
         let seq = Sequence::gen_random_seq(1000);
-        seq.pack_into_codons();
+        seq.return_reading_frames();
     }
 }
