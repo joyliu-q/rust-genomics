@@ -6,15 +6,13 @@ use std::fs;
 use std::fmt;
 use std::cmp;
 use std::io::{Write, BufReader, BufRead};
-use std::time::{Instant};
 
-// TODO
 use rayon::prelude::*;
+use std::sync::{Arc, Mutex};
 
 pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 
-type StartIndex = usize;
-type StopIndex = usize; 
+type Index = usize;
 
 // Maybe good for future stuff 
 pub enum Nucleotide {
@@ -24,21 +22,30 @@ pub enum Nucleotide {
     G,
 }
 impl Nucleotide {
-    fn return_char(index: usize) -> Result<char, Error> {
+    fn to_char(&self) -> char {
+        match self {
+            Nucleotide::A => 'A',
+            Nucleotide::T => 'T',
+            Nucleotide::C => 'C',
+            Nucleotide::G => 'G',
+        }
+    }
+    fn index_to_nt(index: usize) -> Result<Nucleotide, Error> {
         match index {
-            0 => Ok('A'),
-            1 => Ok('T'),
-            2 => Ok('C'),
-            3 => Ok('G'),
+            0 => Ok(Nucleotide::A),
+            1 => Ok(Nucleotide::T),
+            2 => Ok(Nucleotide::C),
+            3 => Ok(Nucleotide::G),
             _ => Err(Error::new(ErrorKind::Other, format!["Nucleotide not found at {}.", &index])),
         }
     }
 }
 
-/// Longest open reading frame (start, stop). Can have one or multiple
+/// Longest open reading frame [start, stop]. Can have one or multiple
+#[derive(Debug)]
 pub enum LORF {
-    One((StartIndex, StopIndex)),
-    Multiple(Vec<(StartIndex, StopIndex)>),
+    One([Index; 2]),
+    Many(Vec<[Index; 2]>),
 } 
 
 //TODO: RIGHT NOW NOT USING SEQUENCE TYPE
@@ -80,13 +87,14 @@ impl Sequence {
     pub fn return_reading_frames(&self) -> Vec<Vec<&str>> {
         let mut reading_frame = vec![Vec::new(), Vec::new(), Vec::new()];
         for i in 0..3 {
-            let mut seq = &self.seq[..];
-            if i > 0 { reading_frame[i].push(&seq[0..i]); }
-            seq.to_string().replace_range(0..i, "");
-            while !seq.is_empty() {
-                let (codon, remaining_seq) = seq.split_at(cmp::min(3, seq.len()));
+            if i > 0 { 
+                reading_frame[i].push(&self.seq[0..i]); 
+            }
+            let mut cut_seq = &self.seq[i..];
+            while !cut_seq.is_empty() {
+                let (codon, remaining_seq) = cut_seq.split_at(cmp::min(3, cut_seq.len()));
                 reading_frame[i].push(codon);
-                seq = remaining_seq;
+                cut_seq = remaining_seq;
             }
         }
         //println!("{:?}", &reading_frame);
@@ -108,17 +116,41 @@ impl Sequence {
     // TODO: Find longest Open Reading Frame in sequence
     pub fn find_lorf(&self) -> LORF {
         let reading_frames = self.return_reading_frames();
+        println!("{:?}", reading_frames);
+        let mut lorf_list = vec![[0, 0]];
         for frame in reading_frames {
             let (start_positons, stop_positions) = Sequence::return_start_stop_positions(frame);
-            //TODO: find ORF based on start and stop lol
-            /*
-                ORF:
-                1. start_index < stop_index
-                2. no stops between current start and stop
-                LORF: max length in ORFs
-            */
+            println!("start {:?}\nstop {:?}", start_positons, stop_positions);
+            for start_index in &start_positons {
+                for (i, stop_index) in stop_positions.iter().enumerate() {
+                    // Condition 1: start before stop
+                    if start_index >= stop_index { continue }
+                    // Condition 2: no stops between start and stop index
+                    if i > 0 {
+                        let prev_stop_index = &stop_positions[i-1];
+                        if start_index < prev_stop_index && prev_stop_index < stop_index { continue }
+                    }
+                    // Condition 3: Length Condition
+                    let orf_length = stop_index - start_index;
+                    let lorf_length = lorf_list[0][1] - lorf_list[0][0];
+                    if orf_length < lorf_length { continue }
+                    if orf_length > lorf_length {
+                        lorf_list = vec![[*start_index, *stop_index]];
+                        continue;
+                    }
+                    if orf_length == lorf_length {
+                        lorf_list.push([*start_index, *stop_index]);
+                        continue;
+                    }
+                }
+            }
         }
-        LORF::One((1,2))
+        if lorf_list.len() == 1 {
+            return LORF::One(lorf_list[0]);
+        }
+        else {
+            return LORF::Many(lorf_list);
+        }
     }
     pub fn gen_random_seq(len: i64) -> Sequence {    
         let mut rng = rand::thread_rng();
@@ -160,13 +192,9 @@ impl FASTA {
     pub fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
         FASTA{name, content}
     }
-    pub fn read_fasta(path: &str) -> FASTA {
-        //let now = Instant::now();
-    
-        // Speedy Way
+    pub fn read_fasta(path: &str) -> FASTA {    
         let data = fs::read_to_string(path).unwrap();
         let data: Vec<&str> = data.split('>').collect();
-    
         let mut records: Vec<FastaRecord> = Vec::new();
     
         for entry in data {
@@ -182,22 +210,20 @@ impl FASTA {
         }
         
         FASTA::new(path.to_string(), records)
-
-        // The other way
-        /*let file = fs::File::open(path).expect("path to file not found");
+    }    
+    pub fn slow_read_fasta(path: &str) -> FASTA {    
+        let file = fs::File::open(path).expect("path to file not found");
         let reader = BufReader::new(file);
-    
-        let mut data = Vec::new();
+        let mut records = Vec::new();
         let mut temp_header = "".to_string();
         let mut temp_seq = "".to_string();
-    
         for (index, line) in reader.lines().enumerate() {
             let line = line.unwrap();
             if line.is_empty() {continue}
             if line.contains('>') {
                 // push all prev record, don't push for 1st line
                 if index > 0 {
-                    data.push(FastaRecord::new(temp_header, temp_seq.to_owned()));
+                    records.push(FastaRecord::new(temp_header, Sequence::new(temp_seq.to_owned())));
                 }
                 // start new record
                 temp_header = line;
@@ -206,13 +232,13 @@ impl FASTA {
             temp_seq.push_str(&line);
         }
         // push final record
-        data.push(FastaRecord::new(temp_header, temp_seq.to_owned()));*/
-        //println!("{}", now.elapsed().subsec_nanos());
-    }    
+        records.push(FastaRecord::new(temp_header, Sequence::new(temp_seq.to_owned())));
+        FASTA::new(path.to_string(), records)
+    }
     pub fn rayon_read_fasta(path: &str) -> FASTA {
         // Speedy Way
         let data = fs::read_to_string(path).unwrap();
-        let data: Vec<&str> = data.split('>').collect();
+        let data: Vec<&str> = data.par_split('>').collect();
     
         let mut records: Vec<FastaRecord> = Vec::new();
     
@@ -239,6 +265,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_sequence_struct() {
         // gen correct length
         let sequence = Sequence::gen_random_seq(1000);
@@ -252,6 +279,18 @@ mod tests {
         // codon packing
         println!("{}", sequence);
         sequence.return_reading_frames();
+    }
+
+    #[test]
+    fn lorf() {
+        // gen correct length
+        let sequence = Sequence::new("ATGGGAATGTGA".to_string());
+        let lorf = sequence.find_lorf();
+        println!("{:?}", lorf);
+        match lorf {
+            LORF::One(value) => assert!(value == [0, 3]),
+            _ => panic!("at the disco"),
+        }
     }
 
     #[test]
