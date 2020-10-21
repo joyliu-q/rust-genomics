@@ -113,7 +113,6 @@ impl Sequence {
         }
         (start_positons, stop_positions)
     }
-    // TODO: Find longest Open Reading Frame in sequence
     pub fn find_lorf(&self) -> LORF {
         let reading_frames = self.return_reading_frames();
         println!("{:?}", reading_frames);
@@ -150,6 +149,60 @@ impl Sequence {
         }
         else {
             return LORF::Many(lorf_list);
+        }
+    }
+    pub fn concurrent_find_lorf(&self) -> LORF {
+        let reading_frames = self.return_reading_frames();
+        println!("{:?}", reading_frames);
+        let lorf_mutex = Arc::new(Mutex::new(vec![[0, 0]]));
+        for frame in reading_frames {
+            let mut handles = Vec::new();
+
+            let (start_positons, stop_positions) = Sequence::return_start_stop_positions(frame);
+            let stop_positions = Arc::new(stop_positions);
+            
+            println!("start {:?}\nstop {:?}", start_positons, stop_positions);
+            for start_index in start_positons {
+                let lorf_mutex = Arc::clone(&lorf_mutex);
+                let stop_positions = Arc::clone(&stop_positions);
+                let handle = std::thread::spawn(move || {
+                    for (i, stop_index) in (*stop_positions).iter().enumerate() {
+                        // Condition 1: start before stop
+                        if start_index >= *stop_index { continue }
+                        // Condition 2: no stops between start and stop index
+                        if i > 0 {
+                            let prev_stop_index = (*stop_positions)[i-1];
+                            if start_index < prev_stop_index && prev_stop_index < *stop_index { continue }
+                        }
+                        // Condition 3: Length Condition
+                        let orf_length = stop_index - start_index;
+                        let mut lorf_list = lorf_mutex.lock().unwrap();
+                        let lorf_length = lorf_list[0][1] - lorf_list[0][0];
+                        if orf_length < lorf_length { continue }
+                        if orf_length > lorf_length {
+                            *lorf_list = vec![[start_index, *stop_index]];
+                            drop(lorf_list);
+                            continue;
+                        }
+                        if orf_length == lorf_length {
+                            (*lorf_list).push([start_index, *stop_index]);
+                            drop(lorf_list);
+                            continue;
+                        }
+                    }
+                });
+                handles.push(handle);
+            }
+            for handle in handles {
+                handle.join().unwrap();
+            }
+        }
+        let lorf_list = &*lorf_mutex.lock().unwrap();
+        if lorf_list.len() == 1 {
+            return LORF::One(lorf_list[0]);
+        }
+        else {
+            return LORF::Many(lorf_list.to_vec());
         }
     }
     pub fn gen_random_seq(len: i64) -> Sequence {    
@@ -286,6 +339,13 @@ mod tests {
         // gen correct length
         let sequence = Sequence::new("ATGGGAATGTGA".to_string());
         let lorf = sequence.find_lorf();
+        println!("{:?}", lorf);
+        match lorf {
+            LORF::One(value) => assert!(value == [0, 3]),
+            _ => panic!("at the disco"),
+        }
+
+        let lorf2 = sequence.concurrent_find_lorf();
         println!("{:?}", lorf);
         match lorf {
             LORF::One(value) => assert!(value == [0, 3]),
