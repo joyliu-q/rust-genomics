@@ -15,7 +15,7 @@ pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 type Index = usize;
 
 // Maybe good for future stuff 
-pub enum Nucleotide {
+enum Nucleotide {
     A,
     T,
     C,
@@ -97,7 +97,6 @@ impl Sequence {
                 cut_seq = remaining_seq;
             }
         }
-        //println!("{:?}", &reading_frame);
         reading_frame
     }
     fn return_start_stop_positions(codon_list: Vec<&str>) -> (Vec<usize>, Vec<usize>){
@@ -113,13 +112,12 @@ impl Sequence {
         }
         (start_positons, stop_positions)
     }
+    #[inline]
     pub fn find_lorf(&self) -> LORF {
         let reading_frames = self.return_reading_frames();
-        println!("{:?}", reading_frames);
         let mut lorf_list = vec![[0, 0]];
         for frame in reading_frames {
             let (start_positons, stop_positions) = Sequence::return_start_stop_positions(frame);
-            println!("start {:?}\nstop {:?}", start_positons, stop_positions);
             for start_index in &start_positons {
                 for (i, stop_index) in stop_positions.iter().enumerate() {
                     // Condition 1: start before stop
@@ -151,9 +149,9 @@ impl Sequence {
             return LORF::Many(lorf_list);
         }
     }
+    #[inline]
     pub fn concurrent_find_lorf(&self) -> LORF {
         let reading_frames = self.return_reading_frames();
-        println!("{:?}", reading_frames);
         let lorf_mutex = Arc::new(Mutex::new(vec![[0, 0]]));
         for frame in reading_frames {
             let mut handles = Vec::new();
@@ -161,7 +159,6 @@ impl Sequence {
             let (start_positons, stop_positions) = Sequence::return_start_stop_positions(frame);
             let stop_positions = Arc::new(stop_positions);
             
-            println!("start {:?}\nstop {:?}", start_positons, stop_positions);
             for start_index in start_positons {
                 let lorf_mutex = Arc::clone(&lorf_mutex);
                 let stop_positions = Arc::clone(&stop_positions);
@@ -336,7 +333,6 @@ mod tests {
 
     #[test]
     fn lorf() {
-        // gen correct length
         let sequence = Sequence::new("ATGGGAATGTGA".to_string());
         let lorf = sequence.find_lorf();
         println!("{:?}", lorf);
@@ -344,15 +340,21 @@ mod tests {
             LORF::One(value) => assert!(value == [0, 3]),
             _ => panic!("at the disco"),
         }
-
-        let lorf2 = sequence.concurrent_find_lorf();
-        println!("{:?}", lorf);
-        match lorf {
+        let lorf_concurrent = sequence.concurrent_find_lorf();
+        println!("{:?}", lorf_concurrent);
+        match lorf_concurrent {
             LORF::One(value) => assert!(value == [0, 3]),
             _ => panic!("at the disco"),
         }
     }
-
+    #[test]
+    fn compare_lorf_methods() {
+        let long_sequence = Sequence::gen_random_seq(10000);
+        let lorf = long_sequence.find_lorf();
+        println!("{:?}", lorf);
+        let lorf_concurrent = long_sequence.concurrent_find_lorf();
+        println!("{:?}", lorf_concurrent);
+    }
     #[test]
     #[ignore]
     fn test_rayon_fasta() {
