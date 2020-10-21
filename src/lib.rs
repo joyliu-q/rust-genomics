@@ -8,6 +8,9 @@ use std::cmp;
 use std::io::{Write, BufReader, BufRead};
 use std::time::{Instant};
 
+// TODO
+use rayon::prelude::*;
+
 pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 
 type StartIndex = usize;
@@ -21,30 +24,16 @@ pub enum Nucleotide {
     G,
 }
 impl Nucleotide {
-    fn return_char(index: usize) -> char {
+    fn return_char(index: usize) -> Result<char, Error> {
         match index {
-            0 => 'A',
-            1 => 'T',
-            2 => 'C',
-            3 => 'G',
+            0 => Ok('A'),
+            1 => Ok('T'),
+            2 => Ok('C'),
+            3 => Ok('G'),
+            _ => Err(Error::new(ErrorKind::Other, format!["Nucleotide not found at {}.", &index])),
         }
     }
 }
-
-/*enum OptionUwU<T> 
-    where T: Display {
-    Yes(T),
-    No,
-}
-impl fmt::Display for OptionUwU<T> 
-    where T: Display {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            Yes(value) => value,
-            No => "Smh",
-        })
-    } 
-}*/
 
 /// Longest open reading frame (start, stop). Can have one or multiple
 pub enum LORF {
@@ -53,6 +42,7 @@ pub enum LORF {
 } 
 
 //TODO: RIGHT NOW NOT USING SEQUENCE TYPE
+#[derive(Debug)]
 pub struct Sequence {
     pub seq: String,
 }
@@ -82,13 +72,11 @@ impl Sequence {
     /// Takes the current sequence and returns a vector of codons at 3 reading frames.
     /// # Example
     /// For sequence ATCAGGCAT, there are 3 frames. By calling this function on that sequence, it returns 
-    /// ```
     /// [
     ///     ["ATC", "AGG", "CAT"],
     ///     ["A", "TCA", "GGC", "AT"],
     ///     ["AT", "CAG", "GCA", "T"]
     /// ]
-    /// ```
     pub fn return_reading_frames(&self) -> Vec<Vec<&str>> {
         let mut reading_frame = vec![Vec::new(), Vec::new(), Vec::new()];
         for i in 0..3 {
@@ -101,7 +89,7 @@ impl Sequence {
                 seq = remaining_seq;
             }
         }
-        println!("{:?}", &reading_frame);
+        //println!("{:?}", &reading_frame);
         reading_frame
     }
     fn return_start_stop_positions(codon_list: Vec<&str>) -> (Vec<usize>, Vec<usize>){
@@ -143,54 +131,7 @@ impl Sequence {
     }
 }
 
-pub fn read_fasta(path: &str) {
-    //let now = Instant::now();
-
-    // Speedy Way
-    let data = fs::read_to_string(path).unwrap();
-    let data: Vec<&str> = data.split('>').collect();
-
-    let mut records: Vec<FastaRecord> = Vec::new();
-
-    for entry in data {
-        if entry.is_empty() {continue}
-        let mut entry: Vec<&str> = entry.split("\n").collect();
-        let header = entry.remove(0);
-        let mut sequence: String = entry.into_iter().collect();
-        sequence = sequence.replace("\n", "");
-        sequence = sequence.replace("\r", "");
-
-        let sequence = Sequence::new(sequence);
-        records.push(FastaRecord::new(header.to_string(), sequence));
-    }
-
-    // The other way
-    /*let file = fs::File::open(path).expect("path to file not found");
-    let reader = BufReader::new(file);
-
-    let mut data = Vec::new();
-    let mut temp_header = "".to_string();
-    let mut temp_seq = "".to_string();
-
-    for (index, line) in reader.lines().enumerate() {
-        let line = line.unwrap();
-        if line.is_empty() {continue}
-        if line.contains('>') {
-            // push all prev record, don't push for 1st line
-            if index > 0 {
-                data.push(FastaRecord::new(temp_header, temp_seq.to_owned()));
-            }
-            // start new record
-            temp_header = line;
-            continue;
-        }
-        temp_seq.push_str(&line);
-    }
-    // push final record
-    data.push(FastaRecord::new(temp_header, temp_seq.to_owned()));*/
-    //println!("{}", now.elapsed().subsec_nanos());
-}
-
+#[derive(Debug)]
 pub struct FastaRecord {
     pub header: String,
     pub sequence: Sequence,
@@ -209,15 +150,87 @@ pub struct FASTA {
     pub name: String,
     pub content: Vec<FastaRecord>,
 }
-impl FASTA {
-    pub fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
-        FASTA{name, content}
-    }
-}
 impl fmt::Display for FASTA {
     //TODO
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Name: {}", self.name)
+    }
+}
+impl FASTA {
+    pub fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
+        FASTA{name, content}
+    }
+    pub fn read_fasta(path: &str) -> FASTA {
+        //let now = Instant::now();
+    
+        // Speedy Way
+        let data = fs::read_to_string(path).unwrap();
+        let data: Vec<&str> = data.split('>').collect();
+    
+        let mut records: Vec<FastaRecord> = Vec::new();
+    
+        for entry in data {
+            if entry.is_empty() {continue}
+            let mut entry: Vec<&str> = entry.split("\n").collect();
+            let header = entry.remove(0);
+            let mut sequence: String = entry.into_iter().collect();
+            sequence = sequence.replace("\n", "");
+            sequence = sequence.replace("\r", "");
+    
+            let sequence = Sequence::new(sequence);
+            records.push(FastaRecord::new(header.to_string(), sequence));
+        }
+        
+        FASTA::new(path.to_string(), records)
+
+        // The other way
+        /*let file = fs::File::open(path).expect("path to file not found");
+        let reader = BufReader::new(file);
+    
+        let mut data = Vec::new();
+        let mut temp_header = "".to_string();
+        let mut temp_seq = "".to_string();
+    
+        for (index, line) in reader.lines().enumerate() {
+            let line = line.unwrap();
+            if line.is_empty() {continue}
+            if line.contains('>') {
+                // push all prev record, don't push for 1st line
+                if index > 0 {
+                    data.push(FastaRecord::new(temp_header, temp_seq.to_owned()));
+                }
+                // start new record
+                temp_header = line;
+                continue;
+            }
+            temp_seq.push_str(&line);
+        }
+        // push final record
+        data.push(FastaRecord::new(temp_header, temp_seq.to_owned()));*/
+        //println!("{}", now.elapsed().subsec_nanos());
+    }    
+    pub fn rayon_read_fasta(path: &str) -> FASTA {
+        // Speedy Way
+        let data = fs::read_to_string(path).unwrap();
+        let data: Vec<&str> = data.split('>').collect();
+    
+        let mut records: Vec<FastaRecord> = Vec::new();
+    
+        for entry in data {
+            if entry.is_empty() {continue}
+            let mut entry: Vec<&str> = entry.par_lines().collect();
+            let header = entry.remove(0);
+            let mut sequence: String = entry.into_iter().collect();
+            sequence = sequence.replace("\n", "");
+            sequence = sequence.replace("\r", "");
+    
+            let sequence = Sequence::new(sequence);
+            records.push(FastaRecord::new(header.to_string(), sequence));
+        }
+
+        println!("{:?}", records);
+
+        FASTA::new(path.to_string(), records)
     }
 }
 
@@ -226,22 +239,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn gen_correct_length() {
+    fn test_sequence_struct() {
+        // gen correct length
         let sequence = Sequence::gen_random_seq(1000);
         assert_eq!(sequence.seq.len(), 1000);
-    }
-
-    #[test]
-    fn find_correct_index() {
-        let sequence = Sequence::gen_random_seq(1000);
+        println!("Ok");
+        // find correct index
         assert![sequence.find_at_index(10).is_ok()];
+        println!("Ok");
         assert![sequence.find_at_index(2000).is_err()];
+        println!("Ok");
+        // codon packing
+        println!("{}", sequence);
+        sequence.return_reading_frames();
     }
 
     #[test]
-    fn test_codon_packing() {
-        let seq = Sequence::gen_random_seq(1000);
-        println!("{:?}", seq);
-        seq.return_reading_frames();
+    #[ignore]
+    fn test_rayon_fasta() {
+        // Yes, there's actually a gene called haha-1. It's in charge of humor.
+        FASTA::rayon_read_fasta("data/haha-1.fasta");
     }
 }
