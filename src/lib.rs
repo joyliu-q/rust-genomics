@@ -153,16 +153,14 @@ impl Sequence {
     pub fn concurrent_find_lorf(&self) -> LORF {
         let reading_frames = self.return_reading_frames();
         let lorf_mutex = Arc::new(Mutex::new(vec![[0, 0]]));
-        for frame in reading_frames {
-            let mut handles = Vec::new();
+        let mut handles = Vec::new();
 
+        for frame in reading_frames {
             let (start_positons, stop_positions) = Sequence::return_start_stop_positions(frame);
             let stop_positions = Arc::new(stop_positions);
-            
-            for start_index in start_positons {
-                let lorf_mutex = Arc::clone(&lorf_mutex);
-                let stop_positions = Arc::clone(&stop_positions);
-                let handle = std::thread::spawn(move || {
+            let lorf_mutex = Arc::clone(&lorf_mutex);
+            let handle = std::thread::spawn(move || {
+                for start_index in start_positons {
                     for (i, stop_index) in (*stop_positions).iter().enumerate() {
                         // Condition 1: start before stop
                         if start_index >= *stop_index { continue }
@@ -187,12 +185,12 @@ impl Sequence {
                             continue;
                         }
                     }
-                });
-                handles.push(handle);
-            }
-            for handle in handles {
-                handle.join().unwrap();
-            }
+                }
+            });
+            handles.push(handle);
+        }
+        for handle in handles {
+            handle.join().unwrap();
         }
         let lorf_list = &*lorf_mutex.lock().unwrap();
         if lorf_list.len() == 1 {
