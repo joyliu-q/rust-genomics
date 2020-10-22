@@ -306,7 +306,7 @@ impl FASTA {
             records.push(FastaRecord::new(header.to_string(), sequence));
         }
 
-        println!("{:?}", records);
+        //println!("{:?}", records);
 
         FASTA::new(path.to_string(), records)
     }

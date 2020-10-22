@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use rust_genomics::{Sequence};
+use rust_genomics::{Sequence, FASTA};
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     /*c.bench_function("gen seq", |b| b.iter(|| {
@@ -42,6 +42,18 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         });
     }
     con_group.finish();
+
+    c.bench_function("slow fasta", |b| b.iter(|| {
+        FASTA::slow_read_fasta("data/haha-1.fasta");
+    }));
+
+    c.bench_function("normal fasta", |b| b.iter(|| {
+        FASTA::read_fasta("data/haha-1.fasta");
+    }));
+
+    c.bench_function("rayon fasta", |b| b.iter(|| {
+        FASTA::rayon_read_fasta("data/haha-1.fasta"); //50ms
+    }));
 }
 
 criterion_group!(benches, criterion_benchmark);
