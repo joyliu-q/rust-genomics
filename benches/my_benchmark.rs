@@ -15,7 +15,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         long_sequence.concurrent_find_lorf();
     }));*/
 
-    let sequences = [
+    /*let sequences = [
         Sequence::gen_random_seq(black_box(100)), // concurrent: 32.756 us, 34.096 us
         Sequence::gen_random_seq(black_box(1000)), // concurrent: 40.622 us, 41.343 us
         Sequence::gen_random_seq(black_box(10000)), // concurrent: 107.72 us, 116.41 us
@@ -41,18 +41,18 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             });
         });
     }
-    con_group.finish();
+    con_group.finish();*/
 
     c.bench_function("slow fasta", |b| b.iter(|| {
-        FASTA::slow_read_fasta("data/haha-1.fasta");
+        FASTA::slow_read_fasta("data/haha-1.fasta"); //2.9770 ms
     }));
 
     c.bench_function("normal fasta", |b| b.iter(|| {
-        FASTA::read_fasta("data/haha-1.fasta");
+        FASTA::read_fasta("data/haha-1.fasta"); //441.20 us
     }));
 
     c.bench_function("rayon fasta", |b| b.iter(|| {
-        FASTA::rayon_read_fasta("data/haha-1.fasta"); //50ms
+        FASTA::rayon_read_fasta("data/haha-1.fasta"); //2.5719 ms
     }));
 }
 

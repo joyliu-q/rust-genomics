@@ -254,8 +254,7 @@ impl FASTA {
             let mut entry: Vec<&str> = entry.split("\n").collect();
             let header = entry.remove(0);
             let mut sequence: String = entry.into_iter().collect();
-            sequence = sequence.replace("\n", "");
-            sequence = sequence.replace("\r", "");
+            sequence = sequence.replace("\n", "").replace("\r", "");
     
             let sequence = Sequence::new(sequence);
             records.push(FastaRecord::new(header.to_string(), sequence));
@@ -288,7 +287,6 @@ impl FASTA {
         FASTA::new(path.to_string(), records)
     }
     pub fn rayon_read_fasta(path: &str) -> FASTA {
-        // Speedy Way
         let data = fs::read_to_string(path).unwrap();
         let data: Vec<&str> = data.par_split('>').collect();
     
@@ -299,15 +297,11 @@ impl FASTA {
             let mut entry: Vec<&str> = entry.par_lines().collect();
             let header = entry.remove(0);
             let mut sequence: String = entry.into_iter().collect();
-            sequence = sequence.replace("\n", "");
-            sequence = sequence.replace("\r", "");
+            sequence = sequence.replace("\n", "").replace("\r", "");
     
             let sequence = Sequence::new(sequence);
             records.push(FastaRecord::new(header.to_string(), sequence));
         }
-
-        //println!("{:?}", records);
-
         FASTA::new(path.to_string(), records)
     }
 }
