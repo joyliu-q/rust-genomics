@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["NUCLEOTIDE",""]],"enum":[["LORF","Longest open reading frame [start, stop]. Can have one or multiple."]],"struct":[["FASTA","A FASTA file is represented here"],["FastaRecord","An entry in a fasta file is represented here"],["Sequence","A genomic sequence is represented here."]]});
