@@ -16,14 +16,14 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }));*/
 
     let sequences = [
-        Sequence::gen_random_seq(black_box(100)), // 32.756 us for concurrent
-        Sequence::gen_random_seq(black_box(1000)), //40.622 us for concurrent
-        Sequence::gen_random_seq(black_box(10000)), //107.72 us for concurrent
-        Sequence::gen_random_seq(black_box(100000)), //1.8189 ms for concurrent
-        Sequence::gen_random_seq(black_box(100000)), //1.8598 ms for concurrent
+        Sequence::gen_random_seq(black_box(100)), // concurrent: 32.756 us, 34.096 us
+        Sequence::gen_random_seq(black_box(1000)), // concurrent: 40.622 us, 41.343 us
+        Sequence::gen_random_seq(black_box(10000)), // concurrent: 107.72 us, 116.41 us
+        Sequence::gen_random_seq(black_box(100000)), // concurrent: 1.8189 ms, 2.1511 ms
+        Sequence::gen_random_seq(black_box(100000)), // concurrent: 1.8598 ms, norm: 2.1466 ms
     ];
 
-    let mut norm_group = c.benchmark_group("concurrent lorf group");
+    let mut norm_group = c.benchmark_group("normal lorf group");
     for seq in sequences.iter() {
         norm_group.bench_with_input(BenchmarkId::from_parameter(seq), seq, |b, seq| {
             b.iter(|| {

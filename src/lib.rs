@@ -231,9 +231,12 @@ pub struct FASTA {
     pub content: Vec<FastaRecord>,
 }
 impl fmt::Display for FASTA {
-    //TODO
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Name: {}", self.name)
+        let mut content_display = String::new();
+        for record in self.content {
+            content_display.push_str(format!("Header: {}\nSequence: {}", record.header, record.sequence));
+        }
+        write!(f, "File Name: {}\nContent: {}", self.name, content_display)
     }
 }
 impl FASTA {
