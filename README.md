@@ -12,7 +12,7 @@ RustGenomics contains tools to help with some of the major analysis of genes and
 
 Some of these functions, such as file parsing and sequence analysis have various versions (e.g. concurrent/normal) that you can use for different sizes. These functions are benchmarked and tested with the criterion crate. 
 
-For more information, see the documentation generated [here](https://joyliu-q.github.io/rust-genomics/rust_genomics/) or run ```cargo doc```.
+For more information, see the documentation generated [here](https://joyliu-q.github.io/rust-genomics/rust_genomics/) or run ```cargo doc``` on your terminal.
 
 ## Main Technologies Used
 * rayon: for concurrency in reading files
