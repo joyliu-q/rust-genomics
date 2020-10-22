@@ -291,10 +291,15 @@ impl FASTA {
     fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
         FASTA{name, content}
     }
-    pub fn find_lorfs(&mut self) -> Vec<LORF> {
+    pub fn find_lorfs(&mut self, concurrent: bool) -> Vec<LORF> {
         let mut lorfs = Vec::new();
         for record in &mut self.content {
-            lorfs.push(record.sequence.concurrent_find_lorf());
+            if record.sequence.seq.is_empty() { continue }
+            let value = match concurrent {
+                true => record.sequence.concurrent_find_lorf(),
+                false => record.sequence.find_lorf()
+            };
+            lorfs.push(value);
         }
         lorfs
     }
