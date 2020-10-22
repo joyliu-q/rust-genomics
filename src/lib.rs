@@ -231,12 +231,13 @@ pub struct FASTA {
     pub content: Vec<FastaRecord>,
 }
 impl fmt::Display for FASTA {
+    //NEED TO TEST THIS WORKS
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut content_display = String::new();
-        for record in self.content {
-            content_display.push_str(format!("Header: {}\nSequence: {}", record.header, record.sequence));
+        write!(f, "File Name: {}\n", self.name);
+        for record in &self.content {
+            write!(f, "Header: {}\nSequence: {}\n\n", record.header, record.sequence);
         }
-        write!(f, "File Name: {}\nContent: {}", self.name, content_display)
+        Ok(())
     }
 }
 impl FASTA {
@@ -357,9 +358,10 @@ mod tests {
         println!("{:?}", lorf_concurrent);
     }
     #[test]
-    #[ignore]
+    //#[ignore]
     fn test_rayon_fasta() {
         // Yes, there's actually a gene called haha-1. It's in charge of humor.
-        FASTA::rayon_read_fasta("data/haha-1.fasta");
+        let fasta = FASTA::rayon_read_fasta("data/haha-1.fasta");
+        println!("{}", fasta);
     }
 }
