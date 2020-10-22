@@ -53,6 +53,7 @@ pub enum LORF {
 pub struct Sequence {
     // The actual sequence, with no whitespaces and all upperspace
     pub seq: String,
+    pub lorf: Option<LORF>,
 }
 impl fmt::Display for Sequence {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -72,7 +73,7 @@ impl Sequence {
     /// let epic_seq = Sequence::new("ATGATGATG".to_string());
     /// ```
     pub fn new(seq: String) -> Sequence {
-        Sequence{ seq: seq.to_uppercase() }
+        Sequence{ seq: seq.to_uppercase(), lorf: None }
     }
     // TODO: check sequence validity (e.g. is ATCG)
     fn check(&self) -> bool {
@@ -139,7 +140,7 @@ impl Sequence {
     /// Given a sequence, return the longest open reading frame (section of sequence beginning with
     ///  start codon and ending with stop codon)
     #[inline]
-    pub fn find_lorf(&self) -> LORF {
+    pub fn find_lorf(&mut self) -> LORF {
         let reading_frames = self.return_reading_frames();
         let mut lorf_list = vec![[0, 0]];
         for frame in reading_frames {
@@ -172,13 +173,13 @@ impl Sequence {
             return LORF::One(lorf_list[0]);
         }
         else {
-            return LORF::Many(lorf_list);
+            return LORF::Many(lorf_list.to_vec());
         }
     }
     /// Given a sequence, return the longest open reading frame (section of sequence beginning with
     ///  start codon and ending with stop codon). Uses threads and concurrency.
     #[inline]
-    pub fn concurrent_find_lorf(&self) -> LORF {
+    pub fn concurrent_find_lorf(&mut self) -> LORF {
         let reading_frames = self.return_reading_frames();
         let lorf_mutex = Arc::new(Mutex::new(vec![[0, 0]]));
         let mut handles = Vec::new();
@@ -246,7 +247,7 @@ impl Sequence {
             let i = rng.gen_range(0, 4);
             seq.push(NUCLEOTIDE[i]);
         }
-        Sequence{seq}
+        Sequence{seq, lorf: None}
     }
 }
 
@@ -289,6 +290,13 @@ impl fmt::Display for FASTA {
 impl FASTA {
     fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
         FASTA{name, content}
+    }
+    pub fn find_lorfs(&mut self) -> Vec<LORF> {
+        let mut lorfs = Vec::new();
+        for record in &mut self.content {
+            lorfs.push(record.sequence.concurrent_find_lorf());
+        }
+        lorfs
     }
     /// Returns and generates a FASTA given a path to a .fasta file
     pub fn read_fasta(path: &str) -> FASTA {    
@@ -353,9 +361,6 @@ impl FASTA {
         }
         FASTA::new(path.to_string(), records)
     }
-    pub fn return_lorfs(&self) {
-
-    }
 }
 
 #[cfg(test)]
@@ -363,7 +368,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore]
+    //#[ignore]
     fn test_sequence_struct() {
         // gen correct length
         let sequence = Sequence::gen_random_seq(1000);
@@ -381,7 +386,7 @@ mod tests {
 
     #[test]
     fn lorf() {
-        let sequence = Sequence::new("ATGGGAATGTGA".to_string());
+        let mut sequence = Sequence::new("ATGGGAATGTGA".to_string());
         let lorf = sequence.find_lorf();
         println!("{:?}", lorf);
         match lorf {
@@ -397,7 +402,7 @@ mod tests {
     }
     #[test]
     fn compare_lorf_methods() {
-        let long_sequence = Sequence::gen_random_seq(10000);
+        let mut long_sequence = Sequence::gen_random_seq(10000);
         let lorf = long_sequence.find_lorf();
         println!("{:?}", lorf);
         let lorf_concurrent = long_sequence.concurrent_find_lorf();
