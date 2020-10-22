@@ -100,13 +100,13 @@ impl Sequence {
     /// For sequence ATCAGGCAT, there are 3 frames. By calling this function on that sequence, it returns 
     /// 
     /// 
-    /// 
+    /// ```rust,ignore
     ///     [["ATC", "AGG", "CAT"],
     /// 
     ///     ["A", "TCA", "GGC", "AT"],
     /// 
     ///     ["AT", "CAG", "GCA", "T"]]
-    /// 
+    /// ```
     /// 
     pub fn return_reading_frames(&self) -> Vec<Vec<&str>> {
         let mut reading_frame = vec![Vec::new(), Vec::new(), Vec::new()];
@@ -352,6 +352,9 @@ impl FASTA {
             records.push(FastaRecord::new(header.to_string(), sequence));
         }
         FASTA::new(path.to_string(), records)
+    }
+    pub fn return_lorfs(&self) {
+
     }
 }
 
