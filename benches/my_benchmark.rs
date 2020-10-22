@@ -43,7 +43,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
     con_group.finish();*/
 
-    c.bench_function("slow fasta", |b| b.iter(|| {
+    /*c.bench_function("slow fasta", |b| b.iter(|| {
         FASTA::slow_read_fasta("data/haha-1.fasta"); //2.9770 ms
     }));
 
@@ -53,7 +53,19 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("rayon fasta", |b| b.iter(|| {
         FASTA::rayon_read_fasta("data/haha-1.fasta"); //2.5719 ms
+    }));*/
+
+    let mut fasta = FASTA::rayon_read_fasta("data/sars_cov_2.fa");
+
+    // typically the larger the file, the more worth to use concurrency 
+    c.bench_function("integration", |b| b.iter(|| {
+        fasta.find_lorfs(false); 
     }));
+
+    c.bench_function("integration concurrent", |b| b.iter(|| {
+        fasta.find_lorfs(true); 
+    }));
+    
 }
 
 criterion_group!(benches, criterion_benchmark);
