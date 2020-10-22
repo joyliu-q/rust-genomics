@@ -41,16 +41,17 @@ impl Nucleotide {
     }
 }
 
-/// Longest open reading frame [start, stop]. Can have one or multiple
+/// Longest open reading frame [start, stop]. Can have one or multiple.
 #[derive(Debug)]
 pub enum LORF {
     One([Index; 2]),
     Many(Vec<[Index; 2]>),
-} 
+}
 
-//TODO: RIGHT NOW NOT USING SEQUENCE TYPE
+/// A genomic sequence is represented here.
 #[derive(Debug)]
 pub struct Sequence {
+    // The actual sequence, with no whitespaces and all upperspace
     pub seq: String,
 }
 impl fmt::Display for Sequence {
@@ -59,13 +60,29 @@ impl fmt::Display for Sequence {
     }
 }
 impl Sequence {
+    /// Returns a Sequence with the seq given to them 
+    /// 
+    /// # Arguments
+    /// 
+    /// * `seq` - A String that holds the sequence itself. Must have no white space or special characters. 
+    /// 
+    /// # Examples
+    /// ```
+    /// use rust_genomics::Sequence;
+    /// let epic_seq = Sequence::new("ATGATGATG".to_string());
+    /// ```
     pub fn new(seq: String) -> Sequence {
-        Sequence{ seq }
+        Sequence{ seq: seq.to_uppercase() }
     }
     // TODO: check sequence validity (e.g. is ATCG)
     fn check(&self) -> bool {
         true
     }
+    /// Returns a Result type containing the nucleotide at a given index 
+    /// 
+    /// # Arguments
+    /// 
+    /// * `index` - should be within the length of the Sequence, or an Error is returned
     pub fn find_at_index(&self, index: usize) -> Result<&str, Error> {
         match self.seq.get(index..index+1) {
             Some(n) => {
@@ -77,13 +94,20 @@ impl Sequence {
         }
     }
     /// Takes the current sequence and returns a vector of codons at 3 reading frames.
-    /// # Example
+    /// 
+    /// # Examples
+    /// 
     /// For sequence ATCAGGCAT, there are 3 frames. By calling this function on that sequence, it returns 
-    /// [
-    ///     ["ATC", "AGG", "CAT"],
+    /// 
+    /// 
+    /// 
+    ///     [["ATC", "AGG", "CAT"],
+    /// 
     ///     ["A", "TCA", "GGC", "AT"],
-    ///     ["AT", "CAG", "GCA", "T"]
-    /// ]
+    /// 
+    ///     ["AT", "CAG", "GCA", "T"]]
+    /// 
+    /// 
     pub fn return_reading_frames(&self) -> Vec<Vec<&str>> {
         let mut reading_frame = vec![Vec::new(), Vec::new(), Vec::new()];
         for i in 0..3 {
@@ -112,6 +136,8 @@ impl Sequence {
         }
         (start_positons, stop_positions)
     }
+    /// Given a sequence, return the longest open reading frame (section of sequence beginning with
+    ///  start codon and ending with stop codon)
     #[inline]
     pub fn find_lorf(&self) -> LORF {
         let reading_frames = self.return_reading_frames();
@@ -149,6 +175,8 @@ impl Sequence {
             return LORF::Many(lorf_list);
         }
     }
+    /// Given a sequence, return the longest open reading frame (section of sequence beginning with
+    ///  start codon and ending with stop codon). Uses threads and concurrency.
     #[inline]
     pub fn concurrent_find_lorf(&self) -> LORF {
         let reading_frames = self.return_reading_frames();
@@ -200,6 +228,17 @@ impl Sequence {
             return LORF::Many(lorf_list.to_vec());
         }
     }
+    /// Returns a randomly generated Sequence with the given length attribute
+    /// 
+    /// # Arguments
+    /// 
+    /// * `len` - the length of that sequence 
+    /// 
+    /// # Examples
+    /// ```
+    /// use rust_genomics::Sequence;
+    /// let epic_seq = Sequence::gen_random_seq(500);
+    /// ```
     pub fn gen_random_seq(len: i64) -> Sequence {    
         let mut rng = rand::thread_rng();
         let mut seq: String = String::new();
@@ -212,11 +251,15 @@ impl Sequence {
 }
 
 #[derive(Debug)]
+/// An entry in a fasta file is represented here
 pub struct FastaRecord {
+    /// The entry's header
     pub header: String,
+    /// The entry's sequence
     pub sequence: Sequence,
 }
 impl FastaRecord {
+    /// Returns a FastaRecord with the header and sequence given to them 
     pub fn new(header: String, sequence: Sequence) -> FastaRecord {
         FastaRecord{header, sequence}
     }
@@ -226,12 +269,15 @@ impl fmt::Display for FastaRecord {
         write!(f, "Header: {}\nSequence: {}", self.header, self.sequence)
     }    
 }
+
+/// A FASTA file is represented here
 pub struct FASTA {
+    /// name/path to file
     pub name: String,
+    /// file content, containing a vector of records
     pub content: Vec<FastaRecord>,
 }
 impl fmt::Display for FASTA {
-    //NEED TO TEST THIS WORKS
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "File Name: {}\n", self.name);
         for record in &self.content {
@@ -241,9 +287,10 @@ impl fmt::Display for FASTA {
     }
 }
 impl FASTA {
-    pub fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
+    fn new(name: String, content: Vec<FastaRecord>) -> FASTA {
         FASTA{name, content}
     }
+    /// Returns and generates a FASTA given a path to a .fasta file
     pub fn read_fasta(path: &str) -> FASTA {    
         let data = fs::read_to_string(path).unwrap();
         let data: Vec<&str> = data.split('>').collect();
@@ -261,7 +308,8 @@ impl FASTA {
         }
         
         FASTA::new(path.to_string(), records)
-    }    
+    }
+    /// Returns and generates a FASTA given a path to a .fasta file (slow version)
     pub fn slow_read_fasta(path: &str) -> FASTA {    
         let file = fs::File::open(path).expect("path to file not found");
         let reader = BufReader::new(file);
@@ -286,9 +334,10 @@ impl FASTA {
         records.push(FastaRecord::new(temp_header, Sequence::new(temp_seq.to_owned())));
         FASTA::new(path.to_string(), records)
     }
+    /// Returns and generates a FASTA given a path to a .fasta file (using rayon)
     pub fn rayon_read_fasta(path: &str) -> FASTA {
         let data = fs::read_to_string(path).unwrap();
-        let data: Vec<&str> = data.par_split('>').collect();
+        let data: Vec<&str> = data.split('>').collect();
     
         let mut records: Vec<FastaRecord> = Vec::new();
     
