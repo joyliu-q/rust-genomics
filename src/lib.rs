@@ -373,7 +373,6 @@ mod tests {
     use super::*;
 
     #[test]
-    //#[ignore]
     fn test_sequence_struct() {
         // gen correct length
         let sequence = Sequence::gen_random_seq(1000);
@@ -390,6 +389,36 @@ mod tests {
     }
 
     #[test]
+    fn test_fasta_record_struct() {
+        // gen correct length
+        let record = FastaRecord::new("epic record name".to_string(), Sequence::new("ATGATGATCCGG".to_string()));
+        assert_eq!(record.header, "epic record name".to_string()); 
+        assert_eq!(record.sequence.seq, Sequence::new("ATGATGATCCGG".to_string()).seq); 
+    }
+
+    #[test]
+    fn test_fasta_struct() {
+        // gen correct length
+        let fasta = FASTA::read_fasta("data/haha-1.fasta");
+        let record = FastaRecord::new("ENST00000555133.5 ENSG00000100591:ENST00000555133.5 cdna:protein_coding".to_string(),
+         Sequence::new("TTCTTTGTTTTCCTATGGGTGAGGAATGGTTGTATGAGCAGTTGGGTTTCGGGACGCTTTTTGGGGAGAACCCGATGGAGTCTGAAGGATCTCTAAATCA\
+         GGCGGAACCCACGGACGGAGAGAGATGCTTCAAATTGGTCCACGGATAAGCTGAAAACACTGTTCCTGGCAGTGCAGGTTCAAAATGAAGAAGGCAAGTGTGAGGTGACGGAAGT\
+         GAGTAAGCTTGATGGAGAGGCATCCATTAACAATCGCAAAGGGAAACTTATCTTCTTTTATGAATGGAGCGTCAAACTAAACTGGACAGGTACTTCTAAGTCAGGAGTACAATAC\
+         AAAGGACATGTGGAGATCCCCAATTTGTCTGATGAAAACAGCGTGGATGAAGTGGAGATTAGTGTGAGCCTTGCCAAAGATGAGCCTGACACAAATCTCGTGGCCTTAATGAAGG\
+         AAGAAGGGGTGAAACTTCTAAGAGAAGCAATGGGAATTTACATCAGCACCCTCAAAACAGAGTTCACCCAGGGCATGATCTTACCTACAATGAATGGAGAGTCAGTAGACCCAGT\
+         GGGGCAGCCAGCACTGAAAACTGAGGAGCGCAAGGCTAAGCCTGCTCCTTCAAAAACCCAGGCCAGACCTGTTGGAGTCAAAATCCCCACTTGTAAGATCACTCTTAAGGAAACC\
+         TTCCTGACGTCACCAGAGGAGCTCTATAGAGTGTTTACCACCCAAGAGCTGGTGCAGGCCTTTACCCATGCTCCTGCAACATTAGAAGCAGACAGAGGTGGAAAGTTCCACATGG\
+         TAGATGGCAACGTCTCTGGGGAATTTACTGATCTGGTCCCTGAGAAACATATTGTGATGAAGTGGAGGTTTAAATCTTGGCCAGAGGGACACTTTGCCACCATCACCTTGACCTT\
+         CATCGACAAGAACGGAGAGACTGAGCTGTGCATGGAAGGTCGAGGCATCCCTGCTCCTGAGGAAGAGCGGACGCGACAGGGCTGGCAGCGGTACTACTTTGAGGGCATTAAACAG\
+         ACCTTTGGCTATGGCGCACGCTTATTTT".to_string()));
+        assert_eq!(fasta.name, "data/haha-1.fasta");
+        assert_eq!(fasta.content[0].header, record.header);
+        assert_eq!(fasta.content[0].sequence.seq, record.sequence.seq);
+    }
+
+
+    #[test]
+    #[ignore]
     fn lorf() {
         let mut sequence = Sequence::new("ATGGGAATGTGA".to_string());
         let lorf = sequence.find_lorf();
@@ -406,6 +435,7 @@ mod tests {
         }
     }
     #[test]
+    #[ignore]
     fn compare_lorf_methods() {
         let mut long_sequence = Sequence::gen_random_seq(10000);
         let lorf = long_sequence.find_lorf();
@@ -414,10 +444,13 @@ mod tests {
         println!("{:?}", lorf_concurrent);
     }
     #[test]
-    //#[ignore]
+    #[ignore]
     fn test_rayon_fasta() {
         // Yes, there's actually a gene called haha-1. It's in charge of humor.
         let fasta = FASTA::rayon_read_fasta("data/haha-1.fasta");
         println!("{}", fasta);
     }
 }
+
+
+
