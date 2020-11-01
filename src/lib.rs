@@ -14,6 +14,9 @@ pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 
 type Index = usize;
 
+pub trait Summary {
+    fn write(&self) -> &str;
+}
 // Maybe good for future stuff 
 enum Nucleotide {
     A,
@@ -58,6 +61,11 @@ pub struct Sequence {
 impl fmt::Display for Sequence {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.seq)
+    }
+}
+impl Summary for Sequence {
+    fn write(&self) -> &str {
+        "TODO"
     }
 }
 impl Sequence {
@@ -249,6 +257,14 @@ impl Sequence {
         }
         Sequence{seq, lorf: None}
     }
+    //TODO
+    pub fn return_levenshtein(&self, target: Sequence) -> usize {
+        let mut diff = 0;
+        if self.seq == target.seq {
+            return diff
+        }
+        1
+    }
 }
 
 #[derive(Debug)]
@@ -416,6 +432,16 @@ mod tests {
         assert_eq!(fasta.content[0].sequence.seq, record.sequence.seq);
     }
 
+
+    #[test]
+    fn test_string_metrics() {
+        let my_seq = Sequence::new("ATG".to_string());
+        let target_seq = Sequence::new("ATGA".to_string());
+        assert_eq!(my_seq.return_levenshtein(target_seq), 1);
+
+        let other_target_seq = Sequence::new("TCGA".to_string());
+        assert_eq!(my_seq.return_levenshtein(other_target_seq), 3);
+    }
 
     #[test]
     #[ignore]
