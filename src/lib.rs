@@ -1,5 +1,4 @@
-use rand::Rng;
-use std::io::{Error, ErrorKind};
+use rand::Rng;use std::io::{Error, ErrorKind};
 
 // Reading fasta/gff3 files
 use std::fs;
@@ -9,6 +8,12 @@ use std::io::{Write, BufReader, BufRead};
 
 use rayon::prelude::*;
 use std::sync::{Arc, Mutex};
+
+extern crate strsim;
+use strsim::{hamming, levenshtein, normalized_levenshtein, osa_distance,
+             damerau_levenshtein, normalized_damerau_levenshtein, jaro,
+             jaro_winkler, sorensen_dice};
+
 
 pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 
@@ -42,14 +47,14 @@ impl Nucleotide {
 }
 
 /// Longest open reading frame [start, stop]. Can have one or multiple.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum LORF {
     One([Index; 2]),
     Many(Vec<[Index; 2]>),
 }
 
 /// A genomic sequence is represented here.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Sequence {
     // The actual sequence, with no whitespaces and all upperspace
     pub seq: String,
@@ -263,9 +268,12 @@ impl Sequence {
         }
         1
     }
+    pub fn compare(seq1: Sequence, seq2: Sequence) -> f64 {
+        normalized_levenshtein(&seq1.seq[..], &seq2.seq[..])
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// An entry in a fasta file is represented here
 pub struct FastaRecord {
     /// The entry's header
@@ -273,16 +281,19 @@ pub struct FastaRecord {
     /// The entry's sequence
     pub sequence: Sequence,
 }
+impl fmt::Display for FastaRecord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Header: {}\nSequence: {}", self.header, self.sequence)
+    }
+}
 impl FastaRecord {
     /// Returns a FastaRecord with the header and sequence given to them 
     pub fn new(header: String, sequence: Sequence) -> FastaRecord {
         FastaRecord{header, sequence}
     }
-}
-impl fmt::Display for FastaRecord {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Header: {}\nSequence: {}", self.header, self.sequence)
-    }    
+    pub fn compare(fr1: &FastaRecord, fr2: &FastaRecord) -> f64 {
+        normalized_levenshtein(&fr1.sequence.seq[..], &fr2.sequence.seq[..])
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -317,6 +328,16 @@ impl FASTA {
             lorfs.push(value);
         }
         lorfs
+    }
+    // TODO: make better
+    pub fn compare(f1: &FASTA, f2: &FASTA) -> f64 {
+        if f1 == f2 { return 1.0 }
+        if f1.content.len() == 0 || f2.content.len() == 0 { return 0.0 }
+
+        let f1_str: String = f1.content.clone().into_iter().map(|record| record.sequence.to_string()).collect::<String>();
+        let f2_str: String = f2.content.clone().into_iter().map(|record| record.sequence.to_string()).collect::<String>();
+        
+        normalized_levenshtein(&f1_str[..], &f2_str[..])
     }
     /// Returns and generates a FASTA given a path to a .fasta file
     pub fn read_fasta(path: &str) -> FASTA {    
@@ -392,15 +413,15 @@ mod tests {
         // gen correct length
         let sequence = Sequence::gen_random_seq(1000);
         assert_eq!(sequence.seq.len(), 1000);
-        println!("Ok");
         // find correct index
         assert![sequence.find_at_index(10).is_ok()];
-        println!("Ok");
         assert![sequence.find_at_index(2000).is_err()];
-        println!("Ok");
         // codon packing
-        println!("{}", sequence);
         sequence.return_reading_frames();
+        // comparison
+        let my_seq = Sequence::new("ATG".to_string());
+        let target_seq = Sequence::new("ATGA".to_string());
+        assert_eq!(Sequence::compare(my_seq, target_seq), 0.75);
     }
 
     #[test]
@@ -409,6 +430,9 @@ mod tests {
         let record = FastaRecord::new("epic record name".to_string(), Sequence::new("ATGATGATCCGG".to_string()));
         assert_eq!(record.header, "epic record name".to_string()); 
         assert_eq!(record.sequence.seq, Sequence::new("ATGATGATCCGG".to_string()).seq); 
+        
+        let target_record = FastaRecord::new("epic record uwu".to_string(), Sequence::new("AGGATTATCCGG".to_string()));
+        println!("{}", FastaRecord::compare(&record, &target_record));
     }
 
     #[test]
@@ -427,18 +451,11 @@ mod tests {
          CATCGACAAGAACGGAGAGACTGAGCTGTGCATGGAAGGTCGAGGCATCCCTGCTCCTGAGGAAGAGCGGACGCGACAGGGCTGGCAGCGGTACTACTTTGAGGGCATTAAACAG\
          ACCTTTGGCTATGGCGCACGCTTATTTT".to_string()));
         assert_eq!(fasta.name, "data/haha-1.fasta");
-        assert_eq!(fasta.content[0], record);
-    }
+        assert_eq!(&fasta.content[0], &record);
 
+        assert_eq!(FastaRecord::compare(&fasta.content[0], &record), 1.0);
+        assert_eq!(FASTA::compare(&fasta, &fasta), 1.0);
 
-    #[test]
-    fn test_string_metrics() {
-        let my_seq = Sequence::new("ATG".to_string());
-        let target_seq = Sequence::new("ATGA".to_string());
-        assert_eq!(Sequence::return_levenshtein(&my_seq.seq, &target_seq.seq), 1);
-
-        let other_target_seq = Sequence::new("TCGA".to_string());
-        assert_eq!(Sequence::return_levenshtein(&my_seq.seq, &other_target_seq.seq), 3);
     }
 
     #[test]
@@ -446,13 +463,11 @@ mod tests {
     fn lorf() {
         let mut sequence = Sequence::new("ATGGGAATGTGA".to_string());
         let lorf = sequence.find_lorf();
-        println!("{:?}", lorf);
         match lorf {
             LORF::One(value) => assert!(value == [0, 3]),
             _ => panic!("at the disco"),
         }
         let lorf_concurrent = sequence.concurrent_find_lorf();
-        println!("{:?}", lorf_concurrent);
         match lorf_concurrent {
             LORF::One(value) => assert!(value == [0, 3]),
             _ => panic!("at the disco"),
