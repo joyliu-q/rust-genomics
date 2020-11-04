@@ -14,9 +14,6 @@ pub const NUCLEOTIDE: [char;4] = ['A', 'T', 'C', 'G'];
 
 type Index = usize;
 
-pub trait Summary {
-    fn write(&self) -> &str;
-}
 // Maybe good for future stuff 
 enum Nucleotide {
     A,
@@ -45,14 +42,14 @@ impl Nucleotide {
 }
 
 /// Longest open reading frame [start, stop]. Can have one or multiple.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum LORF {
     One([Index; 2]),
     Many(Vec<[Index; 2]>),
 }
 
 /// A genomic sequence is represented here.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Sequence {
     // The actual sequence, with no whitespaces and all upperspace
     pub seq: String,
@@ -61,11 +58,6 @@ pub struct Sequence {
 impl fmt::Display for Sequence {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.seq)
-    }
-}
-impl Summary for Sequence {
-    fn write(&self) -> &str {
-        "TODO"
     }
 }
 impl Sequence {
@@ -258,16 +250,22 @@ impl Sequence {
         Sequence{seq, lorf: None}
     }
     //TODO
-    pub fn return_levenshtein(&self, target: Sequence) -> usize {
+    pub fn return_levenshtein(string1: &String, string2: &String) -> usize {
         let mut diff = 0;
-        if self.seq == target.seq {
+        if string1 == string2 {
             return diff
+        }
+        if string1.len() == 0 {
+            return string2.len()
+        }
+        if string2.len() == 0 {
+            return string1.len()
         }
         1
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 /// An entry in a fasta file is represented here
 pub struct FastaRecord {
     /// The entry's header
@@ -287,6 +285,7 @@ impl fmt::Display for FastaRecord {
     }    
 }
 
+#[derive(Debug, PartialEq)]
 /// A FASTA file is represented here
 pub struct FASTA {
     /// name/path to file
@@ -428,8 +427,7 @@ mod tests {
          CATCGACAAGAACGGAGAGACTGAGCTGTGCATGGAAGGTCGAGGCATCCCTGCTCCTGAGGAAGAGCGGACGCGACAGGGCTGGCAGCGGTACTACTTTGAGGGCATTAAACAG\
          ACCTTTGGCTATGGCGCACGCTTATTTT".to_string()));
         assert_eq!(fasta.name, "data/haha-1.fasta");
-        assert_eq!(fasta.content[0].header, record.header);
-        assert_eq!(fasta.content[0].sequence.seq, record.sequence.seq);
+        assert_eq!(fasta.content[0], record);
     }
 
 
@@ -437,10 +435,10 @@ mod tests {
     fn test_string_metrics() {
         let my_seq = Sequence::new("ATG".to_string());
         let target_seq = Sequence::new("ATGA".to_string());
-        assert_eq!(my_seq.return_levenshtein(target_seq), 1);
+        assert_eq!(Sequence::return_levenshtein(&my_seq.seq, &target_seq.seq), 1);
 
         let other_target_seq = Sequence::new("TCGA".to_string());
-        assert_eq!(my_seq.return_levenshtein(other_target_seq), 3);
+        assert_eq!(Sequence::return_levenshtein(&my_seq.seq, &other_target_seq.seq), 3);
     }
 
     #[test]
